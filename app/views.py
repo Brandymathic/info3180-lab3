@@ -1,28 +1,55 @@
-from app import app
+from app import app, mail
 from flask import render_template, request, redirect, url_for, flash
-
+from forms import ContactForm
+from flask_mail import Message
 
 ###
 # Routing for your application.
 ###
-
 @app.route('/')
 def home():
     """Render website's home page."""
     return render_template('home.html')
-
 
 @app.route('/about/')
 def about():
     """Render the website's about page."""
     return render_template('about.html', name="Mary Jane")
 
+@app.route('/contact', methods=['GET', 'POST'])
+def contact():
+    """Render the website's contact page."""
+    form = ContactForm()
+   
+    if request.method == 'POST' and form.validate_on_submit():
+        name = form.name.data
+        email = form.email.data
+        subject = form.subject.data
+        message = form.message.data
+       
+        # Here you would typically send an email
+        msg = Message(subject,
+                     sender=(name, email),
+                     recipients=["brandymathic@gmail.com"])  # Replace with your email
+        msg.body = message
+       
+        try:
+            mail.send(msg)
+            flash('Email sent successfully', 'success')
+            return redirect(url_for('home'))
+        except Exception as e:
+            flash('There was an error sending your message. Please try again later.', 'danger')
+    
+    if request.method == 'POST' and not form.validate_on_submit():
+        # Flash errors if validation fails on POST
+        flash_errors(form)
+   
+    # If GET request or after flashing errors
+    return render_template('contact.html', form=form)
 
 ###
 # The functions below should be applicable to all Flask apps.
 ###
-
-
 # Flash errors from the form if validation fails
 def flash_errors(form):
     for field, errors in form.errors.items():
@@ -32,13 +59,11 @@ def flash_errors(form):
                 error
             ), 'danger')
 
-
 @app.route('/<file_name>.txt')
 def send_text_file(file_name):
     """Send your static text file."""
     file_dot_text = file_name + '.txt'
     return app.send_static_file(file_dot_text)
-
 
 @app.after_request
 def add_header(response):
@@ -50,7 +75,6 @@ def add_header(response):
     response.headers['X-UA-Compatible'] = 'IE=Edge,chrome=1'
     response.headers['Cache-Control'] = 'public, max-age=0'
     return response
-
 
 @app.errorhandler(404)
 def page_not_found(error):
